@@ -6,48 +6,52 @@ import dbutils
 import os
 
 
-def main(srcdb,
-         srcpassword,
-         targetdb,
-         targetpassword):
+def main(srcloginschema
+        ,srcloginpassword
+        ,srclogindb
+        ,targetschema
+        ,targetpassword
+        ,targetdb):
 
     logstart = "Starting {0} at {1} {2}".format(sys.argv[0],
                                                 str(datetime.datetime.now()),
                                                 '\n\n')
 
-
     print logstart
 
-    # Next 10 lines are an embarassment to god and country.  But concise
-    hardcodesourcescript = 'dump_mn_dcpinfo.sql'
-    hardcodetargetscript = 'wc_sandy_gis_data.sql'
-    hardcodeverifyscript = 'verify_wc_sandy_gis_data.sql'
-    hardcodesourceschema = 'GEOCOMMON'
-    hardcodetargetschema = 'SANDY_GIS'
+    # a concise embarassment to god and country
+    hardcodesourcescript = os.path.join('src'
+                                       ,'main'
+                                       ,'resources'
+                                       ,'dump-reservationnow-data.sql')
+    hardcodetargetscript = os.path.join('src'
+                                       ,'main'
+                                       ,'resources'
+                                       ,'load-reservationnow-data.sql')
+    hardcodeverifyscript = 'poletopcerberus.sql'
+    
+    logstart += "Dumping {0}.reservation@{1} using {2}{3}".format('DOITT_PT'
+                                                                  ,srclogindb
+                                                                  ,hardcodesourcescript
+                                                                  ,'\n\n')
 
-    logstart += "Dumping {0}.mn_dcpinfo@{1} to {2}{3}".format(hardcodesourceschema,
-                                                              srcdb,
-                                                              hardcodesourcescript,
-                                                              '\n\n')
-
-    # so sqlplus can find scripts when the caller s
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    os.chdir(dir_path)
+    # so sqlplus can find scripts when the callers
+    # dir_path = os.path.dirname(os.path.realpath(__file__))
+    # os.chdir(dir_path)
 
     try:
 
-
-
-
-        srcdbhandle = dbutils.oracle(hardcodesourceschema,
-                                     srcdb,
-                                     srcpassword)
+        srcdbhandle = dbutils.oracle('DOITT_PT'
+                                     ,srclogindb
+                                     ,srcloginpassword)
 
         srcdbhandle.executescript(hardcodesourcescript)
 
-        logstart += "Loading data into SANDY.WC_SANDY_GIS_DATA on {0}{1}".format(targetdb,
-                                                                                   '\n\n')
-        targetdbhandle = dbutils.oracle(hardcodetargetschema,
+        logstart += "Loading data into {0}.reservationnow on {1}{2}".format(targetschema
+                                                                           ,targetdb
+                                                                           ,'\n\n')
+        
+        targetdbhandle = dbutils.oracle(targetschema,
                                         targetdb,
                                         targetpassword)
 
@@ -69,21 +73,29 @@ def main(srcdb,
 
     return logbody
 
+
 if __name__ == "__main__":
 
-    if len(sys.argv) != 6:
-        raise ValueError('Expected 5 inputs, sourcedatabase, sourcepassword, targetdb, targetpwd, emaillist')
+    if len(sys.argv) != 8:
+        badinputs = 'Expected 7 inputs: ' + \
+                    'sourceloginschema, sourceloginpassword, sourcelogindatabase, ' + \
+                    'targetschema, targetpassword, targetdatabase, emails ' 
+        raise ValueError(badinputs)
 
-    psrcdb = sys.argv[1]
-    psrcpassword = sys.argv[2]
-    ptargetdb = sys.argv[3]
-    ptargetpassword = sys.argv[4]
-    ptomails = sys.argv[5]         # "mschell@doitt.nyc.gov;swim@doitt.nyc.gov"
+    psrcloginschema = sys.argv[1]       # doitt_pt_mtf (but always selects from poletop)
+    psrcloginpassword = sys.argv[2]     # iluvpoletop247
+    psrclogindb = sys.argv[3]           # geocprd
+    ptargetschema = sys.argv[4]         # doitt_pt_mtf (writes directly to target)
+    ptargetpassword = sys.argv[5]       # iluvmtf247
+    ptargetdb = sys.argv[6]             # geocdev
+    ptomails = sys.argv[7]              # "mschell@doitt.nyc.gov;swim@doitt.nyc.gov"
 
-    logtext = main(psrcdb,
-                   psrcpassword,
-                   ptargetdb,
-                   ptargetpassword)
+    logtext = main(psrcloginschema
+                  ,psrcloginpassword
+                  ,psrclogindb
+                  ,ptargetschema
+                  ,ptargetpassword
+                  ,ptargetdb)
 
     if logtext.startswith('This is a SUCCESS'):
 
@@ -93,15 +105,16 @@ if __name__ == "__main__":
 
         emailshout = 'FAILED'
 
-    logtext += "{0}Brought to you by gis-development@doitt.nyc.gov{1}".format('\n\n',
-                                                                              '\n\n')
-    logtext += "additional info at "
+    logtext += "{0}Brought to you by your frens at gis-development@doitt.nyc.gov{1}".format('\n\n',
+                                                                                            '\n\n')
+    logtext += "additional info is at {0}".format('\n\n')
     logtext += "https://msdlva-gisprc01.csc.nycnet/projects/gis-support/wiki/ScheduledScripts {0}".format('\n\n')
+    logtext += "you should go there some time {0}".format('\n\n')
 
     message = mailer.Message()
     message.From = "gis-development@doitt.nyc.gov"
     message.To = ptomails
-    message.Subject = "Sandy Tracker ETL {0}".format(emailshout)
+    message.Subject = "Poletop QA {0}".format(emailshout)
     message.Body = logtext
 
     mailer = mailer.Mailer('doittsmtp.nycnet')

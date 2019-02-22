@@ -15,11 +15,11 @@ SET PAGES 0
 SPOOL reservationnow-data-oracle.sql REPLACE
 COLUMN SQLSTMTS FORMAT A32000
 SELECT 'SET DEFINE OFF' as SQLSTMTS from dual;
-SELECT '-- In matters of style swim with the current.' AS SQLSTMTS from dual;
-SELECT '-- In matters of principle stand like a rock.' AS SQLSTMTS from dual;
-SELECT 'DELETE FROM DOITT_PT_MTF.RESERVATIONNOW;' AS SQLSTMTS from dual;
-SELECT q'^INSERT INTO DOITT_PT_MTF.RESERVATIONNOW ^'
-       || q'^(reservation_id, company_id, shape_x, shape_y, x_coord, y_coord ^'
+SELECT '-- On matters of style swim with the current.' AS SQLSTMTS from dual;
+SELECT '-- On matters of principle stand like a rock.' AS SQLSTMTS from dual;
+SELECT 'DELETE FROM RESERVATIONNOW;' AS SQLSTMTS from dual;
+SELECT q'^INSERT INTO RESERVATIONNOW ^'
+       || q'^(reservation_id, company_id, shape_x, shape_y, x_coord, y_coord) ^'
        || q'^VALUES (^'
        || a.reservation_id 
        || q'^,^'
@@ -33,7 +33,7 @@ SELECT q'^INSERT INTO DOITT_PT_MTF.RESERVATIONNOW ^'
        || q'^,^'
        || a.y_coord 
        || q'^);^' as SQLSTMTS
-  FROM doitt_pt.reservation a
+  FROM doitt_pt.reservation a -- source login can vary, data schema is fixed
   ORDER BY reservation_id;
 SELECT 'COMMIT;' AS SQLSTMTS from dual;
 SPOOL OFF
