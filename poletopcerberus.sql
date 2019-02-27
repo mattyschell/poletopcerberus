@@ -2,7 +2,7 @@ SET ECHO OFF
 SET FEEDBACK ON
 SET VERIFY ON
 SET HEADING ON
-SET TERMOUT ON
+SPOOL poletopcerberus_output.txt REPLACE
 COLUMN WORKINGSCHEMA FORMAT A32
 COLUMN WORKINGDATABASE FORMAT A32
 -- part 1: logging clues
@@ -84,8 +84,8 @@ BEGIN
         baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
                                || baddiez(i) || ' changed franchisees ';  
     END LOOP;
-    --changed x or changed y (from sdogeometry)
     baddiez.DELETE;
+    --changed x or changed y (from sdogeometry)
     psql := 'SELECT a.reservation_id '
          || 'FROM '
          || '   reservationnow a '
@@ -105,52 +105,72 @@ BEGIN
         baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
                                || baddiez(i) || ' moved x and/or y (geometry) ';  
     END LOOP;
-    ---- the other x_coord and y_coord cols
-    ---- 30, 35, 55, not 55
-    --SELECT a.reservation_id --, a.shape_x, a.shape_y, b.reservation_id, b.shape_x, b.shape_y, c.reservation_id, c.shape_x, c.shape_y  
-    --FROM
-    --    reservationnow a
-    --INNER JOIN
-    --    reservationsnapshot b
-    --ON a.reservation_id = b.reservation_id
-    --LEFT JOIN
-    --    reservationack c
-    --ON  a.reservation_id = c.reservation_id
-    --WHERE 
-    --    ((a.x_coord <> b.x_coord OR  a.y_coord <> b.y_coord ) AND c.reservation_id IS NULL)
-    -- OR (c.reservation_id IS NOT NULL AND (c.x_coord <> a.x_coord OR c.y_coord <> a.y_coord))
-    --ORDER BY a.reservation_id
-    --
-    ---- zombie inactive to active
-    ---- 40, not 60
-    --SELECT a.reservation_id
-    --FROM
-    --    reservationnow a
-    --INNER JOIN
-    --    reservationsnapshot b
-    --ON a.reservation_id = b.reservation_id
-    --LEFT JOIN
-    --    reservationack c
-    --ON  a.reservation_id = c.reservation_id
-    --WHERE 
-    --    a.active = 'Y' 
-    --AND b.active = 'N'
-    --AND (c.reservation_id IS NULL OR (c.reservation_id IS NOT NULL AND c.active = 'N'))
-    --ORDER BY a.reservation_id
-    --     
-    ---- a new reservation ID, never seen before, that is lower in the sequence 
-    ---- than previous snapshots. Depends on initial insert working correctly
-    ---- for new, higher sequence reservation ids
-    ---- 2
-    --SELECT a.reservation_id 
-    --FROM 
-    --    reservationnow a
-    --WHERE 
-    --   a.reservation_id NOT IN (select reservation_id from reservationsnapshot)
+    baddiez.DELETE;
+    -- the other x_coord and y_coord cols
+    psql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationnow a '
+         || 'INNER JOIN '
+         || '   reservationsnapshot b '
+         || 'ON a.reservation_id = b.reservation_id '
+         || 'LEFT JOIN '
+         || '   reservationack c '
+         || 'ON  a.reservation_id = c.reservation_id '
+         || 'WHERE '
+         || '   ((a.x_coord <> b.x_coord OR  a.y_coord <> b.y_coord ) AND c.reservation_id IS NULL) '
+         || 'OR '
+         || '   (c.reservation_id IS NOT NULL AND (c.x_coord <> a.x_coord OR c.y_coord <> a.y_coord)) '
+         || 'ORDER BY a.reservation_id ';
+    EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
+    FOR i IN 1 .. baddiez.COUNT
+    LOOP
+        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
+                               || baddiez(i) || ' moved x and/or y (data) ';  
+    END LOOP; 
+    baddiez.DELETE;
+    -- zombie inactive to active
+    psql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationnow a '
+         || 'INNER JOIN '
+         || '   reservationsnapshot b '
+         || 'ON a.reservation_id = b.reservation_id '
+         || 'LEFT JOIN '
+         || '   reservationack c '
+         || 'ON a.reservation_id = c.reservation_id '
+         || 'WHERE  '
+         || '    a.active = :p1 '
+         || 'AND b.active = :p2 '
+         || 'AND (c.reservation_id IS NULL OR (c.reservation_id IS NOT NULL AND c.active = :p3)) '
+         || 'ORDER BY a.reservation_id ';
+    EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez USING 'Y','N','N';
+    FOR i IN 1 .. baddiez.COUNT
+    LOOP
+        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
+                               || baddiez(i) || ' zombiefied, became active again ';  
+    END LOOP; 
+    baddiez.DELETE;     
+    -- a new reservation ID, never seen before, that is lower in the sequence 
+    -- than previous snapshots. Depends on initial insert working correctly
+    -- for new, higher sequence reservation ids
+    psql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationnow a '
+         || 'WHERE '
+         || '   a.reservation_id NOT IN '
+         || '   (SELECT reservation_id FROM reservationsnapshot) ';
+    EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez; 
+    FOR i IN 1 .. baddiez.COUNT
+    LOOP
+        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
+                               || baddiez(i) || ' is suspect, lower ID than we have seen in the past ';  
+    END LOOP; 
+    baddiez.DELETE;
     IF length(baddieput) > 0
     THEN
         RAISE_APPLICATION_ERROR(-20001,baddieput);
     END IF;
 END;
 /
+SPOOL OFF
 EXIT

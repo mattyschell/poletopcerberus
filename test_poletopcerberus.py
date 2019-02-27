@@ -2,6 +2,7 @@ import sys
 import dbutils
 import itertools
 
+
 class dossier(object):
 
     def __init__(self
@@ -34,11 +35,16 @@ class dossier(object):
                ,content):
         
         # expected test results should be input to getDirt as clean content
-        # tests (self) produce dirty dossiers
+        # tests (self) may produce dirty dossiers
         
         dirt = []
-        for testline, expectedline in itertools.izip_longest(self.content, 
-                                                             content):
+
+        testlines = [i for i in self.content if i.startswith('POLETOPERROR')]
+        expectedlines = [i for i in content if i.startswith('POLETOPERROR')]
+
+        for testline, expectedline in itertools.izip_longest(testlines, 
+                                                             expectedlines):
+
             if testline != expectedline:
                 dirt.append('expected: {0}'.format(expectedline))
                 dirt.append('test: {0}'.format(testline))
@@ -51,19 +57,56 @@ class dossier(object):
 
 def run_simple_test(dbhandle):
 
-    testdossier = dossier.fromFile('src/test/resources/test_expected')
-    expecteddossier = dossier.fromFile('src/test/resources/test_expected')
- 
-    dirtydossier = testdossier.getDirt(expecteddossier.content)
+    # sloppy stuff bud
+    print " "
+    print "------ Expected POLETOPERRORS will print to the screen here ---------"
+    print " "
 
-    if len(dirtydossier) > 0:
-        print "failed comparing output to {0}".format('src/test/resources/test_expected')
-        for dirtyline in dirtydossier:
-            print "{0}{1}".format('   '
-                                 ,dirtyline) 
+    try:
+        dbhandle.executescript('poletopcerberus.sql')
+    except Exception as e:
+        
+        # expected
+
+        # expected like <snip> 
+        # DECLARE
+        # *
+        # ERROR at line 1:
+        # ORA-20001:  
+        # POLETOPERROR: reservation 15 changed franchisees  
+        # POLETOPERROR: reservation 20 moved x and/or y (geometry)  
+        # POLETOPERROR: reservation 25 moved x and/or y (geometry)  
+        # POLETOPERROR: reservation 55 moved x and/or y (geometry)  
+        # POLETOPERROR: reservation 30 moved x and/or y (data)  
+        # POLETOPERROR: reservation 35 moved x and/or y (data)  
+        # POLETOPERROR: reservation 55 moved x and/or y (data)  
+        # POLETOPERROR: reservation 40 zombiefied, became active again  
+        # POLETOPERROR: reservation 2 is suspect, lower ID than we have seen in the past 
+        # ORA-06512: at line 111 
+
+        
+        testdossier = dossier.fromFile('poletopcerberus_output.txt')
+        expecteddossier = dossier.fromFile('src/test/resources/test_expected')
+    
+        dirtydossier = testdossier.getDirt(expecteddossier.content)
+
+        print " " 
+        print "------ {0}: Tests will print failed results here ----------------".format(sys.argv[0])
+        
+        if len(dirtydossier) > 0:
+            print "failed comparing output to {0}".format('src/test/resources/test_expected')
+            for dirtyline in dirtydossier:
+                print "{0}{1}".format('   '
+                                     ,dirtyline) 
+        else:
+            # fake pyunit
+            print "{0}".format('.')
+
     else:
-        # fake pyunit
-        print "{0}".format('.')
+
+        print "failed to catch expected errors from poletopcerberus.sql"
+
+    print "------ {0}: End of test results ---------------------------------".format(sys.argv[0])
 
 
 if __name__ == "__main__":
@@ -87,4 +130,4 @@ if __name__ == "__main__":
 
     run_simple_test(dbhandle)
 
-    #dbhandle.executescript('src/test/resources/teardowndb-oracle.sql')  
+    dbhandle.executescript('src/test/resources/teardowndb-oracle.sql')  

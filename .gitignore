@@ -145,6 +145,8 @@ scratch/
 
 # top secret data passed about by this repo
 reservationnow-data-oracle.sql
+reservationsnapshot-data-oracle.sql
+poletopcerberus_output.txt
 
 .gradle/
 

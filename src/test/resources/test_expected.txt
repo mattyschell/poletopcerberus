@@ -1,0 +1,9 @@
+POLETOPERROR: reservation 15 changed franchisees  
+POLETOPERROR: reservation 20 moved x and/or y (geometry)  
+POLETOPERROR: reservation 25 moved x and/or y (geometry)  
+POLETOPERROR: reservation 55 moved x and/or y (geometry)  
+POLETOPERROR: reservation 30 moved x and/or y (data)  
+POLETOPERROR: reservation 35 moved x and/or y (data)  
+POLETOPERROR: reservation 55 moved x and/or y (data)  
+POLETOPERROR: reservation 40 zombiefied, became active again  
+POLETOPERROR: reservation 2 is suspect, lower ID than we have seen in the past

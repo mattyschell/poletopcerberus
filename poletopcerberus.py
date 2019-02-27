@@ -41,7 +41,7 @@ def main(srcloginschema
 
     try:
 
-        srcdbhandle = dbutils.oracle('DOITT_PT'
+        srcdbhandle = dbutils.oracle(srcloginschema
                                      ,srclogindb
                                      ,srcloginpassword)
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
                     'targetschema, targetpassword, targetdatabase, emails ' 
         raise ValueError(badinputs)
 
-    psrcloginschema = sys.argv[1]       # doitt_pt_mtf (but always selects from poletop)
+    psrcloginschema = sys.argv[1]       # doitt_pt_mtf (but always selects from doitt_pt)
     psrcloginpassword = sys.argv[2]     # iluvpoletop247
     psrclogindb = sys.argv[3]           # geocprd
     ptargetschema = sys.argv[4]         # doitt_pt_mtf (writes directly to target)
@@ -105,8 +105,8 @@ if __name__ == "__main__":
 
         emailshout = 'FAILED'
 
-    logtext += "{0}Brought to you by your frens at gis-development@doitt.nyc.gov{1}".format('\n\n',
-                                                                                            '\n\n')
+    logtext += "{0}Brought to you by your pals at gis-development@doitt.nyc.gov{1}".format('\n\n',
+                                                                                           '\n\n')
     logtext += "additional info is at {0}".format('\n\n')
     logtext += "https://msdlva-gisprc01.csc.nycnet/projects/gis-support/wiki/ScheduledScripts {0}".format('\n\n')
     logtext += "you should go there some time {0}".format('\n\n')
