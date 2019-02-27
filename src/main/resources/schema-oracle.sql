@@ -11,6 +11,7 @@ CREATE TABLE RESERVATIONSNAPSHOT (
    shape_y              NUMBER,
    x_coord              NUMBER,
    y_coord              NUMBER,
+   active               VARCHAR2(1),
    CONSTRAINT reservationsnapshotpkc PRIMARY KEY (reservation_id)
 );
 CREATE TABLE RESERVATIONNOW (
@@ -20,5 +21,16 @@ CREATE TABLE RESERVATIONNOW (
    shape_y              NUMBER,
    x_coord              NUMBER,
    y_coord              NUMBER,
+   active               VARCHAR2(1),
    CONSTRAINT reservationnowpkc PRIMARY KEY (reservation_id)
+); 
+CREATE TABLE RESERVATIONACK (
+   reservation_id       NUMBER,
+   company_id           NUMBER,
+   shape_x              NUMBER,
+   shape_y              NUMBER,
+   x_coord              NUMBER,
+   y_coord              NUMBER,
+   active               VARCHAR2(1),
+   CONSTRAINT reservationackpkc PRIMARY KEY (reservation_id)
 ); 

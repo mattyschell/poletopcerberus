@@ -16,3 +16,8 @@ support team (if one exists).
 
 ### Signature
 
+`poletopcerberus.py <source login schema> <source login password> <source login database> <target schema> <target password> <target database> <emails>`
+
+example:
+
+`poletopcerberus.py <doitt_pt_mtf> <iluvpoletop247> <geocprd> <doitt_pt_mtf> <iluvmtf247> <geocdev> <mschell@doitt.nyc.gov;swim@doitt.nyc.gov>`
