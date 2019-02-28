@@ -2,6 +2,7 @@ SET ECHO OFF
 SET FEEDBACK ON
 SET VERIFY ON
 SET HEADING ON
+SET SERVEROUTPUT ON
 SPOOL poletopcerberus_output.txt REPLACE
 COLUMN WORKINGSCHEMA FORMAT A32
 COLUMN WORKINGDATABASE FORMAT A32
@@ -10,20 +11,26 @@ SELECT TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MON-DD HH:MM:SS AM') AS CURRENT_TIME FRO
 SELECT user AS WORKINGSCHEMA, global_name AS WORKINGDATABASE FROM global_name;
 -- part 2: total failures MAYDAY MAYDAY, plus last update record
 DECLARE
-   kount pls_integer;
+   kountsnap    pls_integer;
+   kountnow     pls_integer;
+   kountack     pls_integer;
 BEGIN
     BEGIN
-        SELECT count(*) INTO kount FROM reservationsnapshot;
-    IF kount = 0
-    THEN
-       raise_application_error(-20001, 'FAIL, no records in target reservationsnapshot table');
-    END IF;
-    SELECT count(*) INTO kount FROM reservationnow;
-    IF kount = 0
-    THEN
-       raise_application_error(-20001, 'FAIL, no records in target reservationnow table');
-    END IF;
-    SELECT count(*) INTO kount FROM reservationack; -- must exist, could be empty
+        --snapshot 0 will be allowed on initialization
+        SELECT count(*) INTO kountsnap FROM reservationsnapshot;
+        SELECT count(*) INTO kountnow FROM reservationnow;
+        IF  kountsnap = 0 
+        AND kountnow > 0
+        THEN
+            dbms_output.put_line('WARN, no records in target reservationsnapshot table');
+            dbms_output.put_line('This must be an initialization run on the target');
+        END IF;
+        IF  kountnow = 0
+        AND kountsnap > 0
+        THEN
+           raise_application_error(-20001, 'FAIL, no records in target reservationnow table');
+        END IF;
+        SELECT count(*) INTO kountack FROM reservationack; -- must exist, could be empty
     EXCEPTION
     WHEN OTHERS 
     THEN
@@ -46,14 +53,27 @@ BEGIN
 END;
 /
 -- insert newly created reservations from latest into snapshot
+DECLARE
+   kountsnap    pls_integer;
 BEGIN
-   INSERT INTO reservationsnapshot 
-      (reservation_id, company_id, shape_x, shape_y, x_coord, y_coord, active)
-   SELECT reservation_id, company_id, shape_x, shape_y, x_coord, y_coord, active
-   FROM reservationnow b
-   WHERE 
-       b.reservation_id NOT IN (SELECT reservation_id FROM reservationsnapshot)
-   AND b.reservation_id > (SELECT MAX(reservation_id) FROM reservationsnapshot);
+    --init check
+    SELECT count(*) INTO kountsnap FROM reservationsnapshot;
+    IF kountsnap > 0 
+    THEN
+        --SOP
+        INSERT INTO reservationsnapshot 
+            (reservation_id, company_id, shape_x, shape_y, x_coord, y_coord, active)
+        SELECT reservation_id, company_id, shape_x, shape_y, x_coord, y_coord, active
+        FROM reservationnow b
+        WHERE 
+            b.reservation_id NOT IN (SELECT reservation_id FROM reservationsnapshot)
+        AND b.reservation_id > (SELECT MAX(reservation_id) FROM reservationsnapshot);
+    ELSE
+        INSERT INTO reservationsnapshot 
+            (reservation_id, company_id, shape_x, shape_y, x_coord, y_coord, active)
+        SELECT reservation_id, company_id, shape_x, shape_y, x_coord, y_coord, active
+        FROM reservationnow b;
+    END IF;
 COMMIT;
 END;
 /
@@ -62,7 +82,8 @@ DECLARE
    TYPE NUMBERARRAY IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
    baddiez          NUMBERARRAY;
    psql             VARCHAR2(4000);
-   baddieput        VARCHAR2(4000);
+   -- sqlplus cuts at 4k
+   baddieput        VARCHAR2(12000);
 BEGIN
     -- changed franchisees
     psql := 'SELECT a.reservation_id '
@@ -96,8 +117,8 @@ BEGIN
          || 'reservationack c '
          || 'ON a.reservation_id = c.reservation_id '
          || 'WHERE '
-         || '   ((a.shape_x <> b.shape_x OR  a.shape_y <> b.shape_y) AND c.reservation_id IS NULL) '
-         || 'OR (c.reservation_id IS NOT NULL AND (c.shape_x <> a.shape_x OR c.shape_y <> a.shape_y)) '
+         || '   ((ROUND(a.shape_x) <> ROUND(b.shape_x) OR  ROUND(a.shape_y) <> ROUND(b.shape_y)) AND c.reservation_id IS NULL) '
+         || 'OR (c.reservation_id IS NOT NULL AND (ROUND(c.shape_x) <> ROUND(a.shape_x) OR ROUND(c.shape_y) <> ROUND(a.shape_y))) '
          || 'ORDER BY a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
     FOR i IN 1 .. baddiez.COUNT
@@ -117,9 +138,9 @@ BEGIN
          || '   reservationack c '
          || 'ON  a.reservation_id = c.reservation_id '
          || 'WHERE '
-         || '   ((a.x_coord <> b.x_coord OR  a.y_coord <> b.y_coord ) AND c.reservation_id IS NULL) '
+         || '   ((ROUND(a.x_coord) <> ROUND(b.x_coord) OR ROUND(a.y_coord) <> ROUND(b.y_coord)) AND c.reservation_id IS NULL) '
          || 'OR '
-         || '   (c.reservation_id IS NOT NULL AND (c.x_coord <> a.x_coord OR c.y_coord <> a.y_coord)) '
+         || '   (c.reservation_id IS NOT NULL AND (ROUND(c.x_coord) <> ROUND(a.x_coord) OR ROUND(c.y_coord) <> ROUND(a.y_coord))) '
          || 'ORDER BY a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
     FOR i IN 1 .. baddiez.COUNT
@@ -168,7 +189,11 @@ BEGIN
     baddiez.DELETE;
     IF length(baddieput) > 0
     THEN
-        RAISE_APPLICATION_ERROR(-20001,baddieput);
+        IF LENGTH(baddieput) > 3900
+        THEN
+            dbms_output.put_line(baddieput);
+        END IF;
+        RAISE_APPLICATION_ERROR(-20001,SUBSTR(baddieput,1,3900));
     END IF;
 END;
 /

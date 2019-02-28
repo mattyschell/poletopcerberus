@@ -29,6 +29,7 @@ def main(srcloginschema
                                        ,'resources'
                                        ,'load-reservationnow-data.sql')
     hardcodeverifyscript = 'poletopcerberus.sql'
+    hardcodedresults = 'poletopcerberus_output.txt'
     
     logstart += "Dumping {0}.reservation@{1} using {2}{3}".format('DOITT_PT'
                                                                   ,srclogindb
@@ -36,14 +37,14 @@ def main(srcloginschema
                                                                   ,'\n\n')
 
     # so sqlplus can find scripts when the callers
-    # dir_path = os.path.dirname(os.path.realpath(__file__))
+    # dir_path = os.path.dirname(os.path.realpath(__file__))N
     # os.chdir(dir_path)
 
     try:
 
         srcdbhandle = dbutils.oracle(srcloginschema
-                                     ,srclogindb
-                                     ,srcloginpassword)
+                                    ,srclogindb
+                                    ,srcloginpassword)
 
         srcdbhandle.executescript(hardcodesourcescript)
 
@@ -61,12 +62,14 @@ def main(srcloginschema
 
     except Exception as e:
         logbody = "This is a FAILURE notification \n\n" + logstart
-        logbody += str(traceback.format_exception(*sys.exc_info()))
+        #logbody += str(traceback.format_exception(*sys.exc_info()))
+        with open(hardcodedresults) as f:
+            errorlines = f.readlines()
+            #testlines = [i for i in self.content if i.startswith('POLETOPERROR')]
+        for errorline in [i for i in errorlines if i.startswith('POLETOPERROR')]:
+            logbody += str(errorline)
     else:
         logbody = "This is a SUCCESS notification \n\n" + logstart
-        logbody += "completed Loading data into SANDY.WC_SANDY_GIS_DATA@{0} at {1} {2} ".format(targetdb,
-                                                                                                str(datetime.datetime.now()),
-                                                                                                '\n\n')
 
     print "Full log text being returned to the caller: "
     print logbody
