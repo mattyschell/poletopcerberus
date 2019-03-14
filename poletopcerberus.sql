@@ -53,6 +53,9 @@ BEGIN
 END;
 /
 -- insert newly created reservations from latest into snapshot
+-- these will be frozen in their current state - pending or whatever
+-- the data that gets to reservationsnapshot at this point should not ever 
+-- change
 DECLARE
    kountsnap    pls_integer;
 BEGIN
@@ -149,7 +152,7 @@ BEGIN
                                || baddiez(i) || ' moved x and/or y (data) ';  
     END LOOP; 
     baddiez.DELETE;
-    -- zombie inactive to active
+    -- zombie inactive to active - inactive should only be at end of reservation life
     psql := 'SELECT a.reservation_id '
          || 'FROM '
          || '   reservationnow a '
@@ -185,6 +188,28 @@ BEGIN
     LOOP
         baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
                                || baddiez(i) || ' is suspect, lower ID than we have seen in the past ';  
+    END LOOP; 
+    baddiez.DELETE;
+    -- status preinsp_req with no pre_install_inspection_id
+    --only check reservationnow, initial inserts into reservationsnapshot
+    -- are at whatever status they had at that time
+    psql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationnow a '
+         || 'LEFT JOIN '
+         || '   reservationack c '
+         || 'ON a.reservation_id = c.reservation_id '
+         || 'WHERE '
+         || '   a.status = :p1 AND a.pre_install_inspection_id IS NULL '
+         || 'AND ( (c.reservation_id IS NULL) '
+         || '      OR (c.reservation_id IS NOT NULL and c.pre_install_inspection_id IS NOT NULL) '
+         || '    ) '
+         || 'ORDER by a.reservation_id ';
+    EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez USING 'PREINSP_REQ'; 
+    FOR i IN 1 .. baddiez.COUNT
+    LOOP
+        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
+                               || baddiez(i) || ' is missing a pre_install_inspection_id ';  
     END LOOP; 
     baddiez.DELETE;
     IF length(baddieput) > 0

@@ -7,3 +7,5 @@ POLETOPERROR: reservation 35 moved x and/or y (data)
 POLETOPERROR: reservation 55 moved x and/or y (data)  
 POLETOPERROR: reservation 40 zombiefied, became active again  
 POLETOPERROR: reservation 2 is suspect, lower ID than we have seen in the past
+POLETOPERROR: reservation 65 is missing a pre_install_inspection_id
+POLETOPERROR: reservation 75 is missing a pre_install_inspection_id

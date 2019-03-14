@@ -83,10 +83,9 @@ def run_simple_test(dbhandle):
         # POLETOPERROR: reservation 40 zombiefied, became active again  
         # POLETOPERROR: reservation 2 is suspect, lower ID than we have seen in the past 
         # ORA-06512: at line 111 
-
         
         testdossier = dossier.fromFile('poletopcerberus_output.txt')
-        expecteddossier = dossier.fromFile('src/test/resources/test_expected')
+        expecteddossier = dossier.fromFile('src/test/resources/test_expected.txt')
     
         dirtydossier = testdossier.getDirt(expecteddossier.content)
 
@@ -94,7 +93,7 @@ def run_simple_test(dbhandle):
         print "------ {0}: Tests will print failed results here ----------------".format(sys.argv[0])
         
         if len(dirtydossier) > 0:
-            print "failed comparing output to {0}".format('src/test/resources/test_expected')
+            print "failed comparing output to {0}".format('src/test/resources/test_expected.txt')
             for dirtyline in dirtydossier:
                 print "{0}{1}".format('   '
                                      ,dirtyline) 

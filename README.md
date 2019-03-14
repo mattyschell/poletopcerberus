@@ -2,25 +2,32 @@
 
 ### Description
 
-In late 2018 the legacy poletop application appeared to exhibit inexplicable and
-very troubling buggy behavior.  Usually from the user perspective this meant 
-something like creating a new reservation and having the entered reservation 
-details being applied to an existing, unrelated reservation.
+In late 2018 a legacy application appeared to exhibit unexpected behavior. From 
+the perspective of a casual user this behavior looked like new reservations or 
+existing reservations were changing state or exchanging details with an
+unrelated reservation.  
+
+We don't know what is causing this behavior, whether application, environment,
+or user error.
 
 The goal of the code in this repo is to, as pro-actively as possible, capture
-such misbehavior as it happens and report the infractions to the poletop 
-support team (if one still exists). 
+such misbehavior as it happens and report the infractions to the business owner 
+and support team (if one exists). 
+
+This repository contains no real data from production or identifiers of actual 
+data.  All data in the testing scripts is completely phony, as are 
+authentication info in the examples below.
 
 
 ### Dependencies
 
-* python
+* python (tested on 2.7)
 * sqlplus and Oracle client
-* access to source poletop reservation data (best not to log in directly to prod) 
-* target oracle schema (different database is fine) for writing reservation data and running tests
+* access to source application data (best practice: a read-only account) 
+* target oracle schema (different database is good) for stashing data and running tests
 
 
-### Test
+### Test 
 
 `python test_poletopcerberus.py <testingschema> <testingschemapassword> <testingdatabase>`
 
@@ -35,21 +42,20 @@ example:
 
 example:
 
-`python poletopcerberus.py doitt_pt_mtf iluvpoletop247 geocprd doitt_pt_mtf iluvmtf247 geocdev "mschell@doitt.nyc.gov;swim@doitt.nyc.gov"`
+`python poletopcerberus.py doitt_pt_mtf iluvpoletop247 geocprd doitt_pt_mtf iluvnyc247 geocdev "mschell@doitt.nyc.gov;swim@doitt.nyc.gov"`
 
 
 ### Initial Setup
 
-Either populate reservationsnapshot on the target manually, or run 
+Execute src/main/resources/schema-oracle.sql in the target schema.  
+
+Then either populate reservationsnapshot on the target manually, or run 
 poletopcerberus.py once to initialize the target with current data.  It will 
 perform no meaningful QA on this first run.
 
 
 ## Ongoing Maintenance
 
-If we wish to acknowlege reported reservation changes we can insert the bad
-reservations from `<targetschema>.reservationnow` into 
+If we wish to acknowlege reported reservation changes we can insert the flagged
+records `<targetschema>.reservationnow` into 
 `<targetschema>.reservationack` and they will no longer generate reports.
-
-
-
