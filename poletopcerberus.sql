@@ -6,9 +6,12 @@ SET SERVEROUTPUT ON
 SPOOL poletopcerberus_output.txt REPLACE
 COLUMN WORKINGSCHEMA FORMAT A32
 COLUMN WORKINGDATABASE FORMAT A32
+COLUMN report FORMAT A9999
 -- part 1: logging clues
 SELECT TO_CHAR(CURRENT_TIMESTAMP, 'YYYY-MON-DD HH:MM:SS AM') AS CURRENT_TIME FROM DUAL;
 SELECT user AS WORKINGSCHEMA, global_name AS WORKINGDATABASE FROM global_name;
+DELETE FROM reservationreport;
+COMMIT;
 -- part 2: total failures MAYDAY MAYDAY, plus last update record
 DECLARE
    kountsnap    pls_integer;
@@ -84,9 +87,9 @@ END;
 DECLARE
    TYPE NUMBERARRAY IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
    baddiez          NUMBERARRAY;
+   ackiez           NUMBERARRAY;
    psql             VARCHAR2(4000);
-   -- sqlplus cuts at 4k
-   baddieput        VARCHAR2(12000);
+   asql             VARCHAR2(4000);    
 BEGIN
     -- changed franchisees
     psql := 'SELECT a.reservation_id '
@@ -101,14 +104,35 @@ BEGIN
          || 'WHERE '
          || '    a.company_id <> b.company_id '
          || 'AND c.reservation_id IS NULL '
-         || 'OR (c.reservation_id IS NOT NULL AND c.company_id <> a.company_id) ';
+         || 'OR (c.reservation_id IS NOT NULL AND c.company_id <> a.company_id) '
+         || 'ORDER BY a.reservation_id ';
+    asql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationack a '
+         || 'INNER JOIN '
+         || '   reservationsnapshot b '
+         || 'ON a.reservation_id = b.reservation_id '
+         || 'WHERE '
+         || '    a.company_id <> b.company_id '
+         || 'ORDER BY a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
-    FOR i IN 1 .. baddiez.COUNT
-    LOOP
-        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
-                               || baddiez(i) || ' changed franchisees ';  
-    END LOOP;
+    FORALL ii IN 1 .. baddiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING baddiez(ii)
+                                                      ,'POLETOPERROR'
+                                                      ,'changed franchisees';                
+    COMMIT; 
     baddiez.DELETE;
+    EXECUTE IMMEDIATE asql BULK COLLECT INTO ackiez;
+    FORALL ii IN 1 .. ackiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING ackiez(ii)
+                                                      ,'POLETOPACKNOWLEDGED'
+                                                      ,'changed franchisees';                
+    COMMIT; 
+    ackiez.DELETE;
     --changed x or changed y (from sdogeometry)
     psql := 'SELECT a.reservation_id '
          || 'FROM '
@@ -120,16 +144,36 @@ BEGIN
          || 'reservationack c '
          || 'ON a.reservation_id = c.reservation_id '
          || 'WHERE '
-         || '   ((ROUND(a.shape_x) <> ROUND(b.shape_x) OR  ROUND(a.shape_y) <> ROUND(b.shape_y)) AND c.reservation_id IS NULL) '
+         || '   ((ROUND(a.shape_x) <> ROUND(b.shape_x) OR ROUND(a.shape_y) <> ROUND(b.shape_y)) AND c.reservation_id IS NULL) '
          || 'OR (c.reservation_id IS NOT NULL AND (ROUND(c.shape_x) <> ROUND(a.shape_x) OR ROUND(c.shape_y) <> ROUND(a.shape_y))) '
          || 'ORDER BY a.reservation_id ';
+    asql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationack a '
+         || 'INNER JOIN '
+         || '   reservationsnapshot b '
+         || 'ON a.reservation_id = b.reservation_id '
+         || 'WHERE '
+         || '   ROUND(a.shape_x) <> ROUND(b.shape_x) OR ROUND(a.shape_y) <> ROUND(b.shape_y) '
+         || 'ORDER BY a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
-    FOR i IN 1 .. baddiez.COUNT
-    LOOP
-        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
-                               || baddiez(i) || ' moved x and/or y (geometry) ';  
-    END LOOP;
+    FORALL ii IN 1 .. baddiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING baddiez(ii)
+                                                      ,'POLETOPERROR'
+                                                      ,'moved x and/or y (geometry)';                
+    COMMIT; 
     baddiez.DELETE;
+    EXECUTE IMMEDIATE asql BULK COLLECT INTO ackiez;
+    FORALL ii IN 1 .. ackiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING ackiez(ii)
+                                                      ,'POLETOPACKNOWLEDGED'
+                                                      ,'moved x and/or y (geometry)';                
+    COMMIT;
+    ackiez.DELETE;
     -- the other x_coord and y_coord cols
     psql := 'SELECT a.reservation_id '
          || 'FROM '
@@ -145,13 +189,33 @@ BEGIN
          || 'OR '
          || '   (c.reservation_id IS NOT NULL AND (ROUND(c.x_coord) <> ROUND(a.x_coord) OR ROUND(c.y_coord) <> ROUND(a.y_coord))) '
          || 'ORDER BY a.reservation_id ';
+    asql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationack a '
+         || 'INNER JOIN '
+         || '   reservationsnapshot b '
+         || 'ON a.reservation_id = b.reservation_id '
+         || 'WHERE '
+         || '   ROUND(a.x_coord) <> ROUND(b.x_coord) OR ROUND(a.y_coord) <> ROUND(b.y_coord) '
+         || 'ORDER BY a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
-    FOR i IN 1 .. baddiez.COUNT
-    LOOP
-        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
-                               || baddiez(i) || ' moved x and/or y (data) ';  
-    END LOOP; 
+    FORALL ii IN 1 .. baddiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING baddiez(ii)
+                                                      ,'POLETOPERROR'
+                                                      ,'moved x and/or y (data)';                
+    COMMIT; 
     baddiez.DELETE;
+    EXECUTE IMMEDIATE asql BULK COLLECT INTO ackiez;
+    FORALL ii IN 1 .. ackiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING ackiez(ii)
+                                                      ,'POLETOPACKNOWLEDGED'
+                                                      ,'moved x and/or y (data)';                
+    COMMIT;
+    ackiez.DELETE;
     -- zombie inactive to active - inactive should only be at end of reservation life
     psql := 'SELECT a.reservation_id '
          || 'FROM '
@@ -167,13 +231,34 @@ BEGIN
          || 'AND b.active = :p2 '
          || 'AND (c.reservation_id IS NULL OR (c.reservation_id IS NOT NULL AND c.active = :p3)) '
          || 'ORDER BY a.reservation_id ';
+    asql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationack a '
+         || 'INNER JOIN '
+         || '   reservationsnapshot b '
+         || 'ON a.reservation_id = b.reservation_id '
+         || 'WHERE  '
+         || '    a.active = :p1 '
+         || 'AND b.active = :p2 '
+         || 'ORDER BY a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez USING 'Y','N','N';
-    FOR i IN 1 .. baddiez.COUNT
-    LOOP
-        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
-                               || baddiez(i) || ' zombiefied, became active again ';  
-    END LOOP; 
-    baddiez.DELETE;     
+    FORALL ii IN 1 .. baddiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING baddiez(ii)
+                                                      ,'POLETOPERROR'
+                                                      ,'zombiefied and became active again';                
+    COMMIT; 
+    baddiez.DELETE;
+    EXECUTE IMMEDIATE asql BULK COLLECT INTO ackiez USING 'Y','N';
+    FORALL ii IN 1 .. ackiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING ackiez(ii)
+                                                      ,'POLETOPACKNOWLEDGED'
+                                                      ,'zombiefied and became active again';                
+    COMMIT;
+    ackiez.DELETE;     
     -- a new reservation ID, never seen before, that is lower in the sequence 
     -- than previous snapshots. Depends on initial insert working correctly
     -- for new, higher sequence reservation ids
@@ -183,15 +268,18 @@ BEGIN
          || 'WHERE '
          || '   a.reservation_id NOT IN '
          || '   (SELECT reservation_id FROM reservationsnapshot) ';
-    EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez; 
-    FOR i IN 1 .. baddiez.COUNT
-    LOOP
-        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
-                               || baddiez(i) || ' is suspect, lower ID than we have seen in the past ';  
-    END LOOP; 
+    EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez;
+    --not gonna mess with acknowledged version of this 
+    FORALL ii IN 1 .. baddiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING baddiez(ii)
+                                                      ,'POLETOPERROR'
+                                                      ,'is suspect with lower ID than we have seen';                
+    COMMIT; 
     baddiez.DELETE;
     -- status preinsp_req with no pre_install_inspection_id
-    --only check reservationnow, initial inserts into reservationsnapshot
+    -- only check reservationnow, initial inserts into reservationsnapshot
     -- are at whatever status they had at that time
     psql := 'SELECT a.reservation_id '
          || 'FROM '
@@ -205,22 +293,45 @@ BEGIN
          || '      OR (c.reservation_id IS NOT NULL and c.pre_install_inspection_id IS NOT NULL) '
          || '    ) '
          || 'ORDER by a.reservation_id ';
+    asql := 'SELECT a.reservation_id '
+         || 'FROM '
+         || '   reservationack a '
+         || 'WHERE '
+         || '   a.status = :p1 AND a.pre_install_inspection_id IS NULL '
+         || 'ORDER by a.reservation_id ';
     EXECUTE IMMEDIATE psql BULK COLLECT INTO baddiez USING 'PREINSP_REQ'; 
-    FOR i IN 1 .. baddiez.COUNT
-    LOOP
-        baddieput := baddieput || CHR(10) || ' POLETOPERROR: reservation '
-                               || baddiez(i) || ' is missing a pre_install_inspection_id ';  
-    END LOOP; 
+    FORALL ii IN 1 .. baddiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING baddiez(ii)
+                                                      ,'POLETOPERROR'
+                                                      ,'is missing a pre_install_inspection_id';                
+    COMMIT; 
     baddiez.DELETE;
-    IF length(baddieput) > 0
-    THEN
-        IF LENGTH(baddieput) > 3900
-        THEN
-            dbms_output.put_line(baddieput);
-        END IF;
-        RAISE_APPLICATION_ERROR(-20001,SUBSTR(baddieput,1,3900));
-    END IF;
+    EXECUTE IMMEDIATE asql BULK COLLECT INTO ackiez USING 'PREINSP_REQ';
+    FORALL ii IN 1 .. ackiez.COUNT
+        EXECUTE IMMEDIATE 'INSERT INTO reservationreport '
+                       || '(reservation_id, qatype, message) '
+                       || 'VALUES(:p1,:p2,:p3) ' USING ackiez(ii)
+                                                      ,'POLETOPACKNOWLEDGED'
+                                                      ,'is missing a pre_install_inspection_id';                
+    COMMIT;
+    ackiez.DELETE;   
 END;
 /
+SELECT
+   a.qatype || ': reservation ' || TO_CHAR(a.reservation_id) || ' ' || a.message 
+AS report
+FROM 
+    reservationreport a 
+WHERE a.qatype = 'POLETOPERROR'
+ORDER BY a.reservation_id;
+SELECT
+   a.qatype || ': reservation ' || TO_CHAR(a.reservation_id) || ' ' || a.message 
+AS report
+FROM 
+    reservationreport a 
+WHERE a.qatype = 'POLETOPACKNOWLEDGED'
+ORDER BY a.reservation_id;
 SPOOL OFF
 EXIT

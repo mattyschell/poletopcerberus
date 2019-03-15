@@ -1,9 +1,61 @@
 import sys
 import datetime
-import traceback
 import mailer
 import dbutils
 import os
+import itertools
+
+class dossier(object):
+
+    def __init__(self
+                ,content):
+
+        # content should be a list of text, one line each
+        if type(content) is list:
+            self.content = content
+        else:
+            raise ValueError('Input is not a list')
+
+    @classmethod
+    def fromText(cls
+                ,text):
+
+        # supports all line ending types
+        return cls(text.splitlines())
+
+    @classmethod
+    def fromFile(cls
+                ,fname):
+
+        # open with no newline set translates all line endings to \n
+        with open(fname) as f:
+            incontent = f.readlines()
+
+        return cls([x.strip() for x in incontent])
+
+    def getDirt(self
+               ,content):
+        
+        # this is for testing 
+        # expected test results should be input to getDirt as clean content
+        # tests (self) may produce dirty dossiers
+        
+        dirt = []
+
+        testlines = [i for i in self.content if i.startswith('POLETOPERROR')]
+        expectedlines = [i for i in content if i.startswith('POLETOPERROR')]
+
+        for testline, expectedline in itertools.izip_longest(testlines, 
+                                                             expectedlines):
+
+            if testline != expectedline:
+                dirt.append('expected: {0}'.format(expectedline))
+                dirt.append('test: {0}'.format(testline))
+            else:
+                # space reserved for debugging 
+                pass                
+
+        return dirt
 
 
 def main(srcloginschema
@@ -35,41 +87,38 @@ def main(srcloginschema
                                                                   ,srclogindb
                                                                   ,hardcodesourcescript
                                                                   ,'\n\n')
+    
+    srcdbhandle = dbutils.oracle(srcloginschema
+                                ,srclogindb
+                                ,srcloginpassword)
 
-    # so sqlplus can find scripts when the callers
-    # dir_path = os.path.dirname(os.path.realpath(__file__))N
-    # os.chdir(dir_path)
+    srcdbhandle.executescript(hardcodesourcescript)
 
-    try:
-
-        srcdbhandle = dbutils.oracle(srcloginschema
-                                    ,srclogindb
-                                    ,srcloginpassword)
-
-        srcdbhandle.executescript(hardcodesourcescript)
-
-        logstart += "Loading data into {0}.reservationnow on {1}{2}".format(targetschema
-                                                                           ,targetdb
-                                                                           ,'\n\n')
+    logstart += "Loading data into {0}.reservationnow on {1}{2}".format(targetschema
+                                                                       ,targetdb
+                                                                       ,'\n\n')
         
-        targetdbhandle = dbutils.oracle(targetschema,
-                                        targetdb,
-                                        targetpassword)
+    targetdbhandle = dbutils.oracle(targetschema,
+                                    targetdb,
+                                    targetpassword)
 
-        targetdbhandle.executescript(hardcodetargetscript)
+    targetdbhandle.executescript(hardcodetargetscript)
 
-        targetdbhandle.executescript(hardcodeverifyscript)
+    targetdbhandle.executescript(hardcodeverifyscript)
 
-    except Exception as e:
-        logbody = "This is a FAILURE notification \n\n" + logstart
-        #logbody += str(traceback.format_exception(*sys.exc_info()))
-        with open(hardcodedresults) as f:
-            errorlines = f.readlines()
-            #testlines = [i for i in self.content if i.startswith('POLETOPERROR')]
-        for errorline in [i for i in errorlines if i.startswith('POLETOPERROR')]:
-            logbody += str(errorline)
-    else:
-        logbody = "This is a SUCCESS notification \n\n" + logstart
+    dodgydossier = dossier.fromFile('poletopcerberus_output.txt')
+
+    logprestart = 'This is a SUCCESS notification \n\n'
+    logbody = ''
+
+    for errorline in [i for i in dodgydossier.content if i.startswith('POLETOPERROR')]:
+        logprestart = "This is a FAILURE notification \n\n" 
+        logbody += str(errorline) + '\n'
+
+    for ackline in [i for i in dodgydossier.content if i.startswith('POLETOPACKNOWLEDGED')]:
+        logbody += str(ackline) + '\n'
+
+    logbody = logprestart + logstart + logbody
 
     print "Full log text being returned to the caller: "
     print logbody
